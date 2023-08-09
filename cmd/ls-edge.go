@@ -8,10 +8,10 @@ import (
 	"os/signal"
 	"runtime"
 
-	"github.com/cisco-open/jalapeno/ls-edge/arangodb"
-	"github.com/cisco-open/jalapeno/ls-edge/kafkamessenger"
-	"github.com/cisco-open/jalapeno/ls-edge/kafkanotifier"
 	"github.com/golang/glog"
+	"github.com/jalapeno/ls-edge/arangodb"
+	"github.com/jalapeno/ls-edge/kafkamessenger"
+	"github.com/jalapeno/ls-edge/kafkanotifier"
 
 	_ "net/http/pprof"
 )
