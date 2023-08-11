@@ -9,9 +9,9 @@ import (
 	"runtime"
 
 	"github.com/golang/glog"
-	"github.com/jalapeno/ls-edge/arangodb"
-	"github.com/jalapeno/ls-edge/kafkamessenger"
-	"github.com/jalapeno/ls-edge/kafkanotifier"
+	"github.com/jalapeno/ls-edge/pkg/arangodb"
+	"github.com/jalapeno/ls-edge/pkg/kafkamessenger"
+	"github.com/jalapeno/ls-edge/pkg/kafkanotifier"
 
 	_ "net/http/pprof"
 )
@@ -28,24 +28,35 @@ const (
 )
 
 var (
-	msgSrvAddr       string
-	dbSrvAddr        string
-	dbName           string
-	dbUser           string
-	dbPass           string
-	vertexCollection string
-	edgeCollection   string
+	msgSrvAddr           string
+	dbSrvAddr            string
+	dbName               string
+	dbUser               string
+	dbPass               string
+	vertexCollection     string
+	edgeCollection       string
+	lsnodeExtCollection  string
+	lsTopologyCollection string
 )
 
 func init() {
 	runtime.GOMAXPROCS(1)
-	flag.StringVar(&msgSrvAddr, "message-server", "", "URL to the messages supplying server")
-	flag.StringVar(&dbSrvAddr, "database-server", "", "{dns name}:port or X.X.X.X:port of the graph database")
-	flag.StringVar(&dbName, "database-name", "", "DB name")
-	flag.StringVar(&dbUser, "database-user", "", "DB User name")
-	flag.StringVar(&dbPass, "database-pass", "", "DB User's password")
+	flag.StringVar(&msgSrvAddr, "message-server", "10.200.99.202:30092", "URL to the messages supplying server")
+	flag.StringVar(&dbSrvAddr, "database-server", "http://10.200.99.202:30852", "{dns name}:port or X.X.X.X:port of the graph database")
+	flag.StringVar(&dbName, "database-name", "jalapeno", "DB name")
+	flag.StringVar(&dbUser, "database-user", "root", "DB User name")
+	flag.StringVar(&dbPass, "database-pass", "jalapeno", "DB User's password")
+
+	// flag.StringVar(&msgSrvAddr, "message-server", "", "URL to the messages supplying server")
+	// flag.StringVar(&dbSrvAddr, "database-server", "", "{dns name}:port or X.X.X.X:port of the graph database")
+	// flag.StringVar(&dbName, "database-name", "", "DB name")
+	// flag.StringVar(&dbUser, "database-user", "", "DB User name")
+	// flag.StringVar(&dbPass, "database-pass", "", "DB User's password")
 	flag.StringVar(&vertexCollection, "vertex-name", "ls_node", "Vertex Collection name, default: \"ls_node\"")
 	flag.StringVar(&edgeCollection, "edge-name", "ls_link", "Edge Collection name, default \"ls_link\"")
+	flag.StringVar(&lsnodeExtCollection, "lsnodeExtended-name", "ls_node_extended", "ls_node_extended Collection name, default: \"ls_node_extended\"")
+	flag.StringVar(&lsTopologyCollection, "ls-topology-name", "ls_topology", "Edge Collection name, default \"ls_topology\"")
+
 }
 
 var (
@@ -90,7 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbSrv, err := arangodb.NewDBSrvClient(dbSrvAddr, dbUser, dbPass, dbName, vertexCollection, edgeCollection, notifier)
+	dbSrv, err := arangodb.NewDBSrvClient(dbSrvAddr, dbUser, dbPass, dbName, vertexCollection, edgeCollection, lsnodeExtCollection, lsTopologyCollection, notifier)
 	if err != nil {
 		glog.Errorf("failed to initialize database client with error: %+v", err)
 		os.Exit(1)

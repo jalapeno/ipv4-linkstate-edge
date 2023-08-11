@@ -2,3 +2,4 @@ FROM scratch
 
 COPY ./bin/ls-edge /ls-edge
 ENTRYPOINT ["/ls-edge"]
+

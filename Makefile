@@ -1,5 +1,5 @@
 REGISTRY_NAME?=docker.io/iejalapeno
-IMAGE_VERSION?=latest
+IMAGE_VERSION?=test
 
 .PHONY: all ls-edge container push clean test
 
@@ -13,7 +13,7 @@ all: ls-edge
 
 ls-edge:
 	mkdir -p bin
-	$(MAKE) -C ./cmd/ls-edge compile-ls-edge
+	$(MAKE) -C ./cmd compile-ls-edge
 
 ls-edge-container: ls-edge
 	docker build -t $(REGISTRY_NAME)/ls-edge:$(IMAGE_VERSION) -f ./build/Dockerfile.ls-edge .

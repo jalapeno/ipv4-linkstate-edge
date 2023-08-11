@@ -3,11 +3,12 @@ package arangodb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	driver "github.com/arangodb/go-driver"
 	"github.com/cisco-open/jalapeno/topology/dbclient"
 	"github.com/golang/glog"
-	"github.com/jalapeno/ls-edge/kafkanotifier"
+	"github.com/jalapeno/ls-edge/pkg/kafkanotifier"
 	"github.com/sbezverk/gobmp/pkg/bmp"
 	"github.com/sbezverk/gobmp/pkg/message"
 	"github.com/sbezverk/gobmp/pkg/tools"
@@ -16,15 +17,17 @@ import (
 type arangoDB struct {
 	dbclient.DB
 	*ArangoConn
-	stop     chan struct{}
-	vertex   driver.Collection
-	edge     driver.Collection
-	graph    driver.Collection
-	notifier kafkanotifier.Event
+	stop      chan struct{}
+	vertex    driver.Collection
+	edge      driver.Collection
+	graph     driver.Collection
+	lsnodeExt driver.Collection
+	lstopo    driver.Graph
+	notifier  kafkanotifier.Event
 }
 
 // NewDBSrvClient returns an instance of a DB server client process
-func NewDBSrvClient(arangoSrv, user, pass, dbname, vcn string, ecn string, notifier kafkanotifier.Event) (dbclient.Srv, error) {
+func NewDBSrvClient(arangoSrv, user, pass, dbname, vcn string, ecn string, lsnodeExt string, lstopo string, notifier kafkanotifier.Event) (dbclient.Srv, error) {
 	if err := tools.URLAddrValidation(arangoSrv); err != nil {
 		return nil, err
 	}
@@ -56,12 +59,69 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, vcn string, ecn string, notif
 	if err != nil {
 		return nil, err
 	}
-	// Check if graph exists, if not fail as Jalapeno topology is not running
-	arango.graph, err = arango.db.Collection(context.TODO(), arango.vertex.Name()+"_edge")
+
+	// check for lsnode collection, if it doesn't exist, create it
+	found, err := arango.db.CollectionExists(context.TODO(), lsnodeExt)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		c, err := arango.db.Collection(context.TODO(), lsnodeExt)
+		if err != nil {
+			return nil, err
+		}
+		glog.Infof("ls_node_extended collection found, proceed to processing data")
+
+		if err := c.Remove(context.TODO()); err != nil {
+			return nil, err
+		}
+	}
+	// create ls_node_extended collection
+	var lsnode_options = &driver.CreateCollectionOptions{ /* ... */ }
+	//glog.Infof("ls_node_extended collection not found, creating collection")
+	arango.lsnodeExt, err = arango.db.CreateCollection(context.TODO(), "ls_node_extended", lsnode_options)
 	if err != nil {
 		return nil, err
 	}
 
+	// check if collection exists, if not fail as processor has failed to create collection
+	arango.lsnodeExt, err = arango.db.Collection(context.TODO(), lsnodeExt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create lsnode collection")
+	}
+
+	// check for ipv4 topology graph
+	found, err = arango.db.GraphExists(context.TODO(), lstopo)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		c, err := arango.db.Graph(context.TODO(), lstopo)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.Remove(context.TODO()); err != nil {
+			return nil, err
+		}
+	}
+	// create graph
+	var edgeDefinition driver.EdgeDefinition
+	edgeDefinition.Collection = "ls_topology"
+	edgeDefinition.From = []string{"ls_node_extended"}
+	edgeDefinition.To = []string{"ls_node_extended"}
+	var options driver.CreateGraphOptions
+	options.OrphanVertexCollections = []string{"ls_srv6_sid", "ls_prefix"}
+	options.EdgeDefinitions = []driver.EdgeDefinition{edgeDefinition}
+
+	arango.lstopo, err = arango.db.CreateGraph(context.TODO(), lstopo, &options)
+	if err != nil {
+		return nil, err
+	}
+	// check if graph exists, if not fail as processor has failed to create graph
+	arango.graph, err = arango.db.Collection(context.TODO(), "ls_topology")
+	if err != nil {
+		return nil, err
+	}
 	return arango, nil
 }
 
@@ -105,8 +165,60 @@ func (a *arangoDB) StoreMessage(msgType dbclient.CollectionType, msg []byte) err
 
 func (a *arangoDB) loadEdge() error {
 	ctx := context.TODO()
+
+	// copy ls_node data into new lsnode collection
+	glog.Infof("copy ls_node into ls_node_extended")
+	lsn_query := "for l in " + a.vertex.Name() + " insert l in " + a.lsnodeExt.Name() + ""
+	cursor, err := a.db.Query(ctx, lsn_query, nil)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+
+	// find duplicate entries in the lsnode collection
+	dup_query := "LET duplicates = ( FOR d IN " + a.lsnodeExt.Name() +
+		" COLLECT id = d.igp_router_id, area = d.area_id WITH COUNT INTO count " +
+		" FILTER count > 1 RETURN { id: id, area: area, count: count }) " +
+		"FOR d IN duplicates FOR m IN ls_node_extended FILTER d.id == m.igp_router_id " +
+		"RETURN m "
+	pcursor, err := a.db.Query(ctx, dup_query, nil)
+	if err != nil {
+		return err
+	}
+	defer pcursor.Close()
+	for {
+		var doc duplicateNode
+		dupe, err := pcursor.ReadDocument(ctx, &doc)
+
+		if err != nil {
+			if !driver.IsNoMoreDocuments(err) {
+				return err
+			}
+			break
+		}
+		fmt.Printf("Got doc with key '%s' from query\n", dupe.Key)
+
+		if doc.ProtocolID == 1 {
+			glog.Infof("remove level-1 duplicate node: %s + igp id: %s area id: %s protocol id: %v +  ", doc.Key, doc.IGPRouterID, doc.AreaID, doc.ProtocolID)
+			if _, err := a.lsnodeExt.RemoveDocument(ctx, doc.Key); err != nil {
+				if !driver.IsConflict(err) {
+					return err
+				}
+			}
+		}
+		if doc.ProtocolID == 2 {
+			update_query := "for l in " + a.lsnodeExt.Name() + " filter l._key == " + "\"" + doc.Key + "\"" +
+				" UPDATE l with { protocol: " + "\"" + "ISIS Level 1-2" + "\"" + " } in " + a.lsnodeExt.Name() + ""
+			cursor, err := a.db.Query(ctx, update_query, nil)
+			glog.Infof("update query: %s ", update_query)
+			if err != nil {
+				return err
+			}
+			defer cursor.Close()
+		}
+	}
 	query := "FOR d IN " + a.edge.Name() + " filter d.protocol_id != 7 RETURN d"
-	cursor, err := a.db.Query(ctx, query, nil)
+	cursor, err = a.db.Query(ctx, query, nil)
 	if err != nil {
 		return err
 	}
