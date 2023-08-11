@@ -1,5 +1,5 @@
 REGISTRY_NAME?=docker.io/iejalapeno
-IMAGE_VERSION?=test
+IMAGE_VERSION?=latest
 
 .PHONY: all ls-edge container push clean test
 
