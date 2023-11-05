@@ -41,17 +41,17 @@ var (
 
 func init() {
 	runtime.GOMAXPROCS(1)
-	// flag.StringVar(&msgSrvAddr, "message-server", "10.200.99.202:30092", "URL to the messages supplying server")
-	// flag.StringVar(&dbSrvAddr, "database-server", "http://10.200.99.202:30852", "{dns name}:port or X.X.X.X:port of the graph database")
-	// flag.StringVar(&dbName, "database-name", "jalapeno", "DB name")
-	// flag.StringVar(&dbUser, "database-user", "root", "DB User name")
-	// flag.StringVar(&dbPass, "database-pass", "jalapeno", "DB User's password")
+	flag.StringVar(&msgSrvAddr, "message-server", "198.18.133.103:30092", "URL to the messages supplying server")
+	flag.StringVar(&dbSrvAddr, "database-server", "http://198.18.133.103:30852", "{dns name}:port or X.X.X.X:port of the graph database")
+	flag.StringVar(&dbName, "database-name", "jalapeno", "DB name")
+	flag.StringVar(&dbUser, "database-user", "root", "DB User name")
+	flag.StringVar(&dbPass, "database-pass", "jalapeno", "DB User's password")
 
-	flag.StringVar(&msgSrvAddr, "message-server", "", "URL to the messages supplying server")
-	flag.StringVar(&dbSrvAddr, "database-server", "", "{dns name}:port or X.X.X.X:port of the graph database")
-	flag.StringVar(&dbName, "database-name", "", "DB name")
-	flag.StringVar(&dbUser, "database-user", "", "DB User name")
-	flag.StringVar(&dbPass, "database-pass", "", "DB User's password")
+	// flag.StringVar(&msgSrvAddr, "message-server", "", "URL to the messages supplying server")
+	// flag.StringVar(&dbSrvAddr, "database-server", "", "{dns name}:port or X.X.X.X:port of the graph database")
+	// flag.StringVar(&dbName, "database-name", "", "DB name")
+	// flag.StringVar(&dbUser, "database-user", "", "DB User name")
+	// flag.StringVar(&dbPass, "database-pass", "", "DB User's password")
 	flag.StringVar(&vertexCollection, "vertex-name", "ls_node", "Vertex Collection name, default: \"ls_node\"")
 	flag.StringVar(&edgeCollection, "edge-name", "ls_link", "Edge Collection name, default \"ls_link\"")
 	flag.StringVar(&lsnodeExtCollection, "lsnodeExtended-name", "ls_node_extended", "ls_node_extended Collection name, default: \"ls_node_extended\"")
@@ -83,8 +83,6 @@ func setupSignalHandler() (stopCh <-chan struct{}) {
 func main() {
 	flag.Parse()
 	_ = flag.Set("logtostderr", "true")
-
-	// TODO (sbezverk) pass vertex collection type and edge collection type are parameters
 
 	// validateDBCreds check if the user name and the password are provided either as
 	// command line parameters or via files. If both are provided command line parameters
