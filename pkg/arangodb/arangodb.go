@@ -18,7 +18,7 @@ type arangoDB struct {
 	dbclient.DB
 	*ArangoConn
 	stop      chan struct{}
-	vertex    driver.Collection
+	lsnode    driver.Collection
 	edge      driver.Collection
 	graph     driver.Collection
 	lsnodeExt driver.Collection
@@ -27,7 +27,7 @@ type arangoDB struct {
 }
 
 // NewDBSrvClient returns an instance of a DB server client process
-func NewDBSrvClient(arangoSrv, user, pass, dbname, vcn string, ecn string, lsnodeExt string, lstopo string, notifier kafkanotifier.Event) (dbclient.Srv, error) {
+func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, ecn string, lsnodeExt string, lstopo string, notifier kafkanotifier.Event) (dbclient.Srv, error) {
 	if err := tools.URLAddrValidation(arangoSrv); err != nil {
 		return nil, err
 	}
@@ -49,8 +49,8 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, vcn string, ecn string, lsnod
 		arango.notifier = notifier
 	}
 
-	// Check if vertex collection exists, if not fail as Jalapeno topology is not running
-	arango.vertex, err = arango.db.Collection(context.TODO(), vcn)
+	// Check if original ls_node collection exists, if not fail as Jalapeno topology is not running
+	arango.lsnode, err = arango.db.Collection(context.TODO(), lsnode)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, vcn string, ecn string, lsnod
 		return nil, fmt.Errorf("failed to create lsnode collection")
 	}
 
-	// check for ipv4 topology graph
+	// check for ls topology graph
 	found, err = arango.db.GraphExists(context.TODO(), lstopo)
 	if err != nil {
 		return nil, err
@@ -168,14 +168,15 @@ func (a *arangoDB) loadEdge() error {
 
 	// copy ls_node data into new lsnode collection
 	glog.Infof("copy ls_node into ls_node_extended")
-	lsn_query := "for l in " + a.vertex.Name() + " insert l in " + a.lsnodeExt.Name() + ""
+	lsn_query := "for l in " + a.lsnode.Name() + " insert l in " + a.lsnodeExt.Name() + ""
 	cursor, err := a.db.Query(ctx, lsn_query, nil)
 	if err != nil {
 		return err
 	}
 	defer cursor.Close()
 
-	// find duplicate entries in the lsnode collection
+	// BGP-LS generates a level-1 and a level-2 entry for level-1-2 nodes
+	// remove duplicate entries in the lsnodeExt collection
 	dup_query := "LET duplicates = ( FOR d IN " + a.lsnodeExt.Name() +
 		" COLLECT id = d.igp_router_id, area = d.area_id WITH COUNT INTO count " +
 		" FILTER count > 1 RETURN { id: id, area: area, count: count }) " +

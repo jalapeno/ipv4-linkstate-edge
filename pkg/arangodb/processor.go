@@ -11,11 +11,9 @@ import (
 	"github.com/jalapeno/ls-edge/pkg/kafkanotifier"
 	"github.com/sbezverk/gobmp/pkg/base"
 	"github.com/sbezverk/gobmp/pkg/message"
-	"github.com/sbezverk/gobmp/pkg/sr"
-	"github.com/sbezverk/gobmp/pkg/srv6"
 )
 
-const LSNodeEdgeCollection = "ls_topology"
+//const lsEdgeCollection = "ls_topology"
 
 func (a *arangoDB) lsLinkHandler(obj *kafkanotifier.EventMessage) error {
 	ctx := context.TODO()
@@ -63,64 +61,31 @@ func (a *arangoDB) lsLinkHandler(obj *kafkanotifier.EventMessage) error {
 	return nil
 }
 
-type lsTopologyObject struct {
-	Key                   string                `json:"_key"`
-	From                  string                `json:"_from"`
-	To                    string                `json:"_to"`
-	Link                  string                `json:"link"`
-	ProtocolID            base.ProtoID          `json:"protocol_id"`
-	DomainID              int64                 `json:"domain_id"`
-	MTID                  uint16                `json:"mt_id"`
-	AreaID                string                `json:"area_id"`
-	Protocol              string                `json:"protocol"`
-	LocalLinkID           uint32                `json:"local_link_id"`
-	RemoteLinkID          uint32                `json:"remote_link_id"`
-	LocalLinkIP           string                `json:"local_link_ip"`
-	RemoteLinkIP          string                `json:"remote_link_ip"`
-	LocalNodeASN          uint32                `json:"local_node_asn"`
-	RemoteNodeASN         uint32                `json:"remote_node_asn"`
-	PeerNodeSID           *sr.PeerSID           `json:"peer_node_sid,omitempty"`
-	PeerAdjSID            *sr.PeerSID           `json:"peer_adj_sid,omitempty"`
-	PeerSetSID            *sr.PeerSID           `json:"peer_set_sid,omitempty"`
-	SRv6BGPPeerNodeSID    *srv6.BGPPeerNodeSID  `json:"srv6_bgp_peer_node_sid,omitempty"`
-	SRv6ENDXSID           []*srv6.EndXSIDTLV    `json:"srv6_endx_sid,omitempty"`
-	LSAdjacencySID        []*sr.AdjacencySIDTLV `json:"ls_adjacency_sid,omitempty"`
-	UnidirLinkDelay       uint32                `json:"unidir_link_delay"`
-	UnidirLinkDelayMinMax []uint32              `json:"unidir_link_delay_min_max"`
-	UnidirDelayVariation  uint32                `json:"unidir_delay_variation,omitempty"`
-	UnidirPacketLoss      uint32                `json:"unidir_packet_loss,omitempty"`
-	UnidirResidualBW      uint32                `json:"unidir_residual_bw,omitempty"`
-	UnidirAvailableBW     uint32                `json:"unidir_available_bw,omitempty"`
-	UnidirBWUtilization   uint32                `json:"unidir_bw_utilization,omitempty"`
-}
-
 // processEdge processes a single ls_link connection which is a unidirectional edge between two nodes (vertices).
 func (a *arangoDB) processEdge(ctx context.Context, key string, l *message.LSLink) error {
 	if l.ProtocolID == base.BGP {
 		return nil
 	}
 	//glog.V(9).Infof("processEdge processing lslink: %s", l.ID)
+	// get local node from ls_link entry
 	ln, err := a.getNode(ctx, l, true)
 	if err != nil {
 		glog.Errorf("processEdge failed to get local lsnode %s for link: %s with error: %+v", l.IGPRouterID, l.ID, err)
 		return err
 	}
 
+	// get remote node from ls_link entry
 	rn, err := a.getNode(ctx, l, false)
 	if err != nil {
 		glog.Errorf("processEdge failed to get remote lsnode %s for link: %s with error: %+v", l.RemoteIGPRouterID, l.ID, err)
 		return err
 	}
-	// glog.V(6).Infof("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v",
-	// 	ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
-	// glog.V(6).Infof("Remote node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v",
-	// 	rn.ProtocolID, rn.DomainID, rn.IGPRouterID)
+	// glog.V(6).Infof("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
+	// glog.V(6).Infof("Remote node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", rn.ProtocolID, rn.DomainID, rn.IGPRouterID)
 	if err := a.createEdgeObject(ctx, l, ln, rn); err != nil {
 		glog.Errorf("processEdge failed to create Edge object with error: %+v", err)
-		glog.Errorf("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v",
-			ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
-		glog.Errorf("Remote node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v",
-			rn.ProtocolID, rn.DomainID, rn.IGPRouterID)
+		glog.Errorf("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
+		glog.Errorf("Remote node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", rn.ProtocolID, rn.DomainID, rn.IGPRouterID)
 		return err
 	}
 	//glog.V(9).Infof("processEdge completed processing lslink: %s for ls nodes: %s - %s", l.ID, ln.ID, rn.ID)
