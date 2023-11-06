@@ -8,12 +8,10 @@ import (
 
 	driver "github.com/arangodb/go-driver"
 	"github.com/golang/glog"
-	"github.com/jalapeno/ls-edge/pkg/kafkanotifier"
+	"github.com/jalapeno/ipv4-linkstate-edge/pkg/kafkanotifier"
 	"github.com/sbezverk/gobmp/pkg/base"
 	"github.com/sbezverk/gobmp/pkg/message"
 )
-
-//const lsEdgeCollection = "ls_topology"
 
 func (a *arangoDB) lsLinkHandler(obj *kafkanotifier.EventMessage) error {
 	ctx := context.TODO()
@@ -64,6 +62,9 @@ func (a *arangoDB) lsLinkHandler(obj *kafkanotifier.EventMessage) error {
 // processEdge processes a single ls_link connection which is a unidirectional edge between two nodes (vertices).
 func (a *arangoDB) processEdge(ctx context.Context, key string, l *message.LSLink) error {
 	if l.ProtocolID == base.BGP {
+		return nil
+	}
+	if l.MTID != nil {
 		return nil
 	}
 	//glog.V(9).Infof("processEdge processing lslink: %s", l.ID)

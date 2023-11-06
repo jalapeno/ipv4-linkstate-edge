@@ -8,7 +8,7 @@ import (
 	driver "github.com/arangodb/go-driver"
 	"github.com/cisco-open/jalapeno/topology/dbclient"
 	"github.com/golang/glog"
-	"github.com/jalapeno/ls-edge/pkg/kafkanotifier"
+	"github.com/jalapeno/ipv4-linkstate-edge/pkg/kafkanotifier"
 	"github.com/sbezverk/gobmp/pkg/bmp"
 	"github.com/sbezverk/gobmp/pkg/message"
 	"github.com/sbezverk/gobmp/pkg/tools"
@@ -106,7 +106,7 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, ecn string, ls
 	}
 	// create graph
 	var edgeDefinition driver.EdgeDefinition
-	edgeDefinition.Collection = "ls_topology"
+	edgeDefinition.Collection = "ls_topology_v4"
 	edgeDefinition.From = []string{"ls_node_extended"}
 	edgeDefinition.To = []string{"ls_node_extended"}
 	var options driver.CreateGraphOptions
@@ -118,7 +118,7 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, ecn string, ls
 		return nil, err
 	}
 	// check if graph exists, if not fail as processor has failed to create graph
-	arango.graph, err = arango.db.Collection(context.TODO(), "ls_topology")
+	arango.graph, err = arango.db.Collection(context.TODO(), "ls_topology_v4")
 	if err != nil {
 		return nil, err
 	}

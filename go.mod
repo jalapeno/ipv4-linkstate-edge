@@ -1,4 +1,4 @@
-module github.com/jalapeno/ls-edge
+module github.com/jalapeno/ipv4-linkstate-edge
 
 go 1.17
 
