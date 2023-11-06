@@ -19,7 +19,8 @@ type arangoDB struct {
 	*ArangoConn
 	stop      chan struct{}
 	lsnode    driver.Collection
-	edge      driver.Collection
+	lslink    driver.Collection
+	lsprefix  driver.Collection
 	graph     driver.Collection
 	lsnodeExt driver.Collection
 	lstopo    driver.Graph
@@ -27,7 +28,7 @@ type arangoDB struct {
 }
 
 // NewDBSrvClient returns an instance of a DB server client process
-func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, ecn string, lsnodeExt string, lstopo string, notifier kafkanotifier.Event) (dbclient.Srv, error) {
+func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, lslink string, lsprefix string, lsnodeExt string, lstopo string, notifier kafkanotifier.Event) (dbclient.Srv, error) {
 	if err := tools.URLAddrValidation(arangoSrv); err != nil {
 		return nil, err
 	}
@@ -54,13 +55,19 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, ecn string, ls
 	if err != nil {
 		return nil, err
 	}
-	// Check if edge collection exists, if not fail as Jalapeno topology is not running
-	arango.edge, err = arango.db.Collection(context.TODO(), ecn)
+	// Check if ls_link edge collection exists, if not fail as Jalapeno topology is not running
+	arango.lslink, err = arango.db.Collection(context.TODO(), lslink)
 	if err != nil {
 		return nil, err
 	}
 
-	// check for lsnode collection, if it doesn't exist, create it
+	// Check if ls_prefix collection exists, if not fail as Jalapeno topology is not running
+	arango.lsprefix, err = arango.db.Collection(context.TODO(), lsprefix)
+	if err != nil {
+		return nil, err
+	}
+
+	// check for lsnode_extended collection, if it doesn't exist, create it
 	found, err := arango.db.CollectionExists(context.TODO(), lsnodeExt)
 	if err != nil {
 		return nil, err
@@ -159,7 +166,10 @@ func (a *arangoDB) StoreMessage(msgType dbclient.CollectionType, msg []byte) err
 	case bmp.LSLinkMsg:
 		return a.lsLinkHandler(event)
 	}
-
+	switch msgType {
+	case bmp.LSPrefixMsg:
+		return a.lsprefixHandler(event)
+	}
 	return nil
 }
 
@@ -218,8 +228,51 @@ func (a *arangoDB) loadEdge() error {
 			defer cursor.Close()
 		}
 	}
-	query := "FOR d IN " + a.edge.Name() + " filter d.protocol_id != 7 RETURN d"
-	cursor, err = a.db.Query(ctx, query, nil)
+
+	// loopbacksquery := "for l in " + a.lsprefix.Name() + " filter l.prefix_len == 32"
+	// cursor, err = a.db.Query(ctx, loopbacksquery, nil)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer cursor.Close()
+	// for {
+	// 	var p message.LSPrefix
+	// 	meta, err := cursor.ReadDocument(ctx, &p)
+	// 	//glog.Infof("processing lslink document: %+v", p)
+	// 	if driver.IsNoMoreDocuments(err) {
+	// 		break
+	// 	} else if err != nil {
+	// 		return err
+	// 	}
+	// 	if err := a.processLoopbacks(ctx, meta.Key, &p); err != nil {
+	// 		glog.Errorf("failed to process key: %s with error: %+v", meta.Key, err)
+	// 		continue
+	// 	}
+	// }
+
+	// query ls_prefix collection and pass data to prefixSID processor
+	glog.Infof("processing ls prefix")
+	sr_query := "for p in  " + a.lsprefix.Name() + " return p "
+	cursor, err = a.db.Query(ctx, sr_query, nil)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+	for {
+		var p message.LSPrefix
+		meta, err := cursor.ReadDocument(ctx, &p)
+		if driver.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			return err
+		}
+		if err := a.processPrefixSID(ctx, meta.Key, meta.ID.String(), &p); err != nil {
+			glog.Errorf("Failed to process ls_prefix_sid %s with error: %+v", p.ID, err)
+		}
+	}
+
+	lslinkquery := "for l in " + a.lslink.Name() + " filter l.protocol_id != 7 RETURN l"
+	cursor, err = a.db.Query(ctx, lslinkquery, nil)
 	if err != nil {
 		return err
 	}
@@ -233,7 +286,30 @@ func (a *arangoDB) loadEdge() error {
 		} else if err != nil {
 			return err
 		}
-		if err := a.processEdge(ctx, meta.Key, &p); err != nil {
+		if err := a.processLSLinkEdge(ctx, meta.Key, &p); err != nil {
+			glog.Errorf("failed to process key: %s with error: %+v", meta.Key, err)
+			continue
+		}
+	}
+
+	lspfxquery := "for l in " + a.lsprefix.Name() + //" filter l.mt_id_tlv == null return l"
+		" filter l.mt_id_tlv.mt_id != 2 && l.prefix_len != 30 && " +
+		"l.prefix_len != 31 && l.prefix_len != 32 return l"
+	cursor, err = a.db.Query(ctx, lspfxquery, nil)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+	for {
+		var p message.LSPrefix
+		meta, err := cursor.ReadDocument(ctx, &p)
+		//glog.Infof("processing lsprefix document: %+v", p)
+		if driver.IsNoMoreDocuments(err) {
+			break
+		} else if err != nil {
+			return err
+		}
+		if err := a.processLSPrefixEdge(ctx, meta.Key, &p); err != nil {
 			glog.Errorf("failed to process key: %s with error: %+v", meta.Key, err)
 			continue
 		}
