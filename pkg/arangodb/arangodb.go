@@ -255,7 +255,7 @@ func (a *arangoDB) loadEdge() error {
 	sr_query := "for p in  " + a.lsprefix.Name() + " return p "
 	cursor, err = a.db.Query(ctx, sr_query, nil)
 	if err != nil {
-		return err
+		return errv
 	}
 	defer cursor.Close()
 	for {
