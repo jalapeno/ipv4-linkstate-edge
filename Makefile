@@ -1,7 +1,7 @@
 REGISTRY_NAME?=docker.io/iejalapeno
 IMAGE_VERSION?=latest
 
-.PHONY: all ipv4-linkstate-edge container push clean test
+.PHONY: all linkstate-edge-v4 container push clean test
 
 ifdef V
 TESTARGS = -v -args -alsologtostderr -v 5
@@ -9,17 +9,17 @@ else
 TESTARGS =
 endif
 
-all: ipv4-linkstate-edge
+all: linkstate-edge-v4
 
-ipv4-linkstate-edge:
+linkstate-edge-v4:
 	mkdir -p bin
-	$(MAKE) -C ./cmd compile-ipv4-linkstate-edge
+	$(MAKE) -C ./cmd compile-linkstate-edge-v4
 
-ipv4-linkstate-edge-container: ipv4-linkstate-edge
-	docker build -t $(REGISTRY_NAME)/ipv4-linkstate-edge:$(IMAGE_VERSION) -f ./build/Dockerfile.ipv4-linkstate-edge .
+linkstate-edge-v4-container: linkstate-edge-v4
+	docker build -t $(REGISTRY_NAME)/linkstate-edge-v4:$(IMAGE_VERSION) -f ./build/Dockerfile.linkstate-edge-v4 .
 
-push: ipv4-linkstate-edge-container
-	docker push $(REGISTRY_NAME)/ipv4-linkstate-edge:$(IMAGE_VERSION)
+push: linkstate-edge-v4-container
+	docker push $(REGISTRY_NAME)/linkstate-edge-v4:$(IMAGE_VERSION)
 
 clean:
 	rm -rf bin

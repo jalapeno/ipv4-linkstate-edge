@@ -1,5 +1,0 @@
-FROM scratch
-
-COPY ./bin/ipv4-linkstate-edge /ipv4-linkstate-edge
-ENTRYPOINT ["/ipv4-linkstate-edge"]
-

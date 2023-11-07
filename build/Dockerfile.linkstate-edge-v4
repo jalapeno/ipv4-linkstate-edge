@@ -1,0 +1,5 @@
+FROM scratch
+
+COPY ./bin/linkstate-edge-v4 /linkstate-edge-v4
+ENTRYPOINT ["/linkstate-edge-v4"]
+

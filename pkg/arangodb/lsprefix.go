@@ -8,7 +8,7 @@ import (
 
 	driver "github.com/arangodb/go-driver"
 	"github.com/golang/glog"
-	"github.com/jalapeno/ipv4-linkstate-edge/pkg/kafkanotifier"
+	"github.com/jalapeno/linkstate-edge-v4/pkg/kafkanotifier"
 	"github.com/sbezverk/gobmp/pkg/base"
 	"github.com/sbezverk/gobmp/pkg/message"
 )
@@ -62,6 +62,11 @@ func (a *arangoDB) lsprefixHandler(obj *kafkanotifier.EventMessage) error {
 // processEdge processes a single ls_link connection which is a unidirectional edge between two nodes (vertices).
 func (a *arangoDB) processLSPrefixEdge(ctx context.Context, key string, p *message.LSPrefix) error {
 	//glog.V(9).Infof("processEdge processing lsprefix: %s", l.ID)
+
+	// filter out IPv6, ls link, and loopback prefixes
+	if p.MTID != nil || p.PrefixLen == 30 || p.PrefixLen == 31 || p.PrefixLen == 32 {
+		return nil
+	}
 
 	// get remote node from ls_link entry
 	lsnode, err := a.getLSNode(ctx, p, false)

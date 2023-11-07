@@ -8,7 +8,7 @@ import (
 
 	driver "github.com/arangodb/go-driver"
 	"github.com/golang/glog"
-	"github.com/jalapeno/ipv4-linkstate-edge/pkg/kafkanotifier"
+	"github.com/jalapeno/linkstate-edge-v4/pkg/kafkanotifier"
 	"github.com/sbezverk/gobmp/pkg/base"
 	"github.com/sbezverk/gobmp/pkg/message"
 )
@@ -67,7 +67,7 @@ func (a *arangoDB) processLSLinkEdge(ctx context.Context, key string, l *message
 	if l.MTID != nil {
 		return nil
 	}
-	//glog.V(9).Infof("processEdge processing lslink: %s", l.ID)
+	glog.Infof("processEdge processing lslink: %s", l.ID)
 	// get local node from ls_link entry
 	ln, err := a.getNode(ctx, l, true)
 	if err != nil {
@@ -81,8 +81,8 @@ func (a *arangoDB) processLSLinkEdge(ctx context.Context, key string, l *message
 		glog.Errorf("processEdge failed to get remote lsnode %s for link: %s with error: %+v", l.RemoteIGPRouterID, l.ID, err)
 		return err
 	}
-	// glog.V(6).Infof("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
-	// glog.V(6).Infof("Remote node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", rn.ProtocolID, rn.DomainID, rn.IGPRouterID)
+	glog.V(6).Infof("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
+	glog.V(6).Infof("Remote node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", rn.ProtocolID, rn.DomainID, rn.IGPRouterID)
 	if err := a.createEdgeObject(ctx, l, ln, rn); err != nil {
 		glog.Errorf("processEdge failed to create Edge object with error: %+v", err)
 		glog.Errorf("Local node -> Protocol: %+v Domain ID: %+v IGP Router ID: %+v", ln.ProtocolID, ln.DomainID, ln.IGPRouterID)
