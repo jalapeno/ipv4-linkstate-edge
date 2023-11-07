@@ -35,7 +35,7 @@ func (a *arangoDB) lsLinkHandler(obj *kafkanotifier.EventMessage) error {
 		if obj.Action != "del" {
 			return fmt.Errorf("document %s not found but Action is not \"del\", possible stale event", obj.Key)
 		}
-		err := a.processEdgeRemoval(ctx, obj.Key, obj.Action)
+		err := a.processLinkRemoval(ctx, obj.Key, obj.Action)
 		if err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func (a *arangoDB) processLSLinkEdge(ctx context.Context, key string, l *message
 
 // processEdgeRemoval removes a record from Node's graph collection
 // since the key matches in both collections (LS Links and Nodes' Graph) deleting the record directly.
-func (a *arangoDB) processEdgeRemoval(ctx context.Context, key string, action string) error {
+func (a *arangoDB) processLinkRemoval(ctx context.Context, key string, action string) error {
 	if _, err := a.graph.RemoveDocument(ctx, key); err != nil {
 		if !driver.IsNotFound(err) {
 			return err
