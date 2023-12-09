@@ -13,8 +13,9 @@ import (
 
 var (
 	topics = map[string]dbclient.CollectionType{
-		kafkanotifier.LSLinkEventTopic: bmp.LSLinkMsg,
-		kafkanotifier.LSNodeEventTopic: bmp.LSNodeMsg,
+		kafkanotifier.LSLinkEventTopic:   bmp.LSLinkMsg,
+		kafkanotifier.LSNodeEventTopic:   bmp.LSNodeMsg,
+		kafkanotifier.LSPrefixEventTopic: bmp.LSPrefixMsg,
 	}
 )
 
@@ -34,13 +35,13 @@ type kafka struct {
 
 // NewKafkaMessenger returns an instance of a kafka consumer acting as a messenger server
 func NewKafkaMessenger(kafkaSrv string, db dbclient.DB) (Srv, error) {
-	glog.Infof("LS Node Vertex kafka reader")
+	glog.Infof("Link state edge v4 kafka reader")
 	if err := tools.HostAddrValidator(kafkaSrv); err != nil {
 		return nil, err
 	}
 
 	config := sarama.NewConfig()
-	config.ClientID = "lslinknode-edge-collection"
+	config.ClientID = "linkstate-edge-v4-collection"
 	config.Consumer.Return.Errors = true
 	config.Version = sarama.V0_11_0_0
 

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	LSNodeEdgeEventTopic = "jalapeno.ls_edge_events"
+	LinkStateEdgeV4EventTopic = "jalapeno.linkstate_edge_v4_events"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 	// topics defines a list of topic to initialize and connect,
 	// initialization is done as a part of NewKafkaPublisher func.
 	topicNames = []string{
-		LSNodeEdgeEventTopic,
+		LinkStateEdgeV4EventTopic,
 	}
 )
 
@@ -53,9 +53,11 @@ type notifier struct {
 func (n *notifier) EventNotification(msg *EventMessage) error {
 	switch msg.TopicType {
 	case bmp.LSNodeMsg:
-		return n.triggerNotification(LSNodeEdgeEventTopic, msg)
+		return n.triggerNotification(LinkStateEdgeV4EventTopic, msg)
 	case bmp.LSLinkMsg:
-		return n.triggerNotification(LSNodeEdgeEventTopic, msg)
+		return n.triggerNotification(LinkStateEdgeV4EventTopic, msg)
+	case bmp.LSPrefixMsg:
+		return n.triggerNotification(LinkStateEdgeV4EventTopic, msg)
 	}
 
 	return fmt.Errorf("unknown topic type %d", msg.TopicType)
