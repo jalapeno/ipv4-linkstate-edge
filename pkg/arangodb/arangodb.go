@@ -91,7 +91,23 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, lslink string,
 		return nil, err
 	}
 	if found {
+		g, err := arango.db.Graph(context.TODO(), lstopo)
+		if err != nil {
+			return nil, err
+		}
+		if err := g.Remove(context.TODO()); err != nil {
+			return nil, err
+		}
+		glog.Infof("removed existing graph %s", lstopo)
+	}
+	// check for ls topology graph
+	found, err = arango.db.GraphExists(context.TODO(), lstopo)
+	if err != nil {
+		return nil, err
+	}
+	if found {
 		c, err := arango.db.Graph(context.TODO(), lstopo)
+
 		if err != nil {
 			return nil, err
 		}
@@ -119,6 +135,7 @@ func NewDBSrvClient(arangoSrv, user, pass, dbname, lsnode string, lslink string,
 		return nil, err
 	}
 	return arango, nil
+
 }
 
 func (a *arangoDB) Start() error {
